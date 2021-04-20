@@ -10,6 +10,7 @@ import torch
 from fairseq.file_io import PathManager
 from fairseq.tokenizer import tokenize_line
 from typing import List, Dict
+import pdb
 
 
 def safe_readline(f):
@@ -96,6 +97,25 @@ class Binarizer:
                 if end > 0 and f.tell() > end:
                     break
                 ids = alignment_parser(line)
+                nseq += 1
+                consumer(ids)
+                line = f.readline()
+        return {"nseq": nseq}
+
+    @staticmethod
+    def binarize_da(
+        filename, consumer, offset=0, end=-1
+    ) -> Dict[str, int]:
+        nseq = 0
+
+        with open(PathManager.get_local_path(filename), "r") as f:
+            f.seek(offset)
+            line = safe_readline(f)
+            while line:
+                if end > 0 and f.tell() > end:
+                    break
+                ids = torch.IntTensor([int(line.strip()),])
+                # pdb.set_trace()
                 nseq += 1
                 consumer(ids)
                 line = f.readline()

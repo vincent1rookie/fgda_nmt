@@ -19,6 +19,7 @@ from fairseq import options, tasks, utils
 from fairseq.binarizer import Binarizer
 from fairseq.data import indexed_dataset
 
+import pdb
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -77,7 +78,7 @@ def main(args):
 
     if args.joined_dictionary:
         assert (
-            not args.srcdict or not args.tgtdict
+                not args.srcdict or not args.tgtdict
         ), "cannot use both --srcdict and --tgtdict with --joined-dictionary"
 
         if args.srcdict:
@@ -236,6 +237,59 @@ def main(args):
 
         logger.info("[alignments] {}: parsed {} alignments".format(input_file, nseq[0]))
 
+    def make_binary_da_dataset(input_prefix, output_prefix, lang, num_workers):
+        logger.info("Adding domain indexes")
+        n_seq_tok = [0, 0]
+        replaced = Counter()
+
+        def merge_result(worker_result):
+            n_seq_tok[0] += worker_result["nseq"]
+
+        input_file = "{}{}".format(
+            input_prefix, ("." + lang) if lang is not None else ""
+        )
+        offsets = Binarizer.find_offsets(input_file, num_workers)
+        pool = None
+        # TODO: Error encounters if num_workers>1:
+        #  No such file or directory: 'data-bin/iwslt14.tokenized.de-en/train.da1.en-de.en.idx'
+        if num_workers > 1:
+            pool = Pool(processes=num_workers - 1)
+            for worker_id in range(1, num_workers):
+                prefix = "{}{}".format(output_prefix, worker_id)
+                pool.apply_async(
+                    binarize_da,
+                    (
+                        args,
+                        input_file,
+                        prefix,
+                        lang,
+                        offsets[worker_id],
+                        offsets[worker_id + 1],
+                    ),
+                    callback=merge_result,
+                )
+            pool.close()
+
+        ds = indexed_dataset.make_builder(
+            dataset_dest_file(args, output_prefix, lang, "bin"),
+            impl=args.dataset_impl,
+        )
+        merge_result(
+            Binarizer.binarize_da(
+                input_file, lambda t: ds.add_item(t), offset=0, end=offsets[1]
+            )
+        )
+        if num_workers > 1:
+            pool.join()
+            for worker_id in range(1, num_workers):
+                prefix = "{}{}".format(output_prefix, worker_id)
+                temp_file_path = dataset_dest_prefix(args, prefix, lang)
+                ds.merge_file_(temp_file_path)
+                os.remove(indexed_dataset.data_file_path(temp_file_path))
+                os.remove(indexed_dataset.index_file_path(temp_file_path))
+
+        ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
+
     def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1):
         if args.dataset_impl == "raw":
             # Copy original text file to destination folder
@@ -281,11 +335,36 @@ def main(args):
                 num_workers=args.workers,
             )
 
-    make_all(args.source_lang, src_dict)
-    if target:
-        make_all(args.target_lang, tgt_dict)
-    if args.align_suffix:
-        make_all_alignments()
+    def make_all_da():
+        if args.trainpref and os.path.exists(args.trainpref + "." + args.da_suffix + "." + args.source_lang):
+            make_binary_da_dataset(
+                args.trainpref + "." + args.da_suffix,
+                "train" + "." + args.da_suffix,
+                args.source_lang,
+                num_workers=args.workers,
+            )
+        if args.validpref and os.path.exists(args.validpref + "." + args.da_suffix + "." + args.source_lang):
+            make_binary_da_dataset(
+                args.validpref + "." + args.da_suffix,
+                "valid" + "." + args.da_suffix,
+                args.source_lang,
+                num_workers=args.workers,
+            )
+        if args.testpref and os.path.exists(args.testpref + "." + args.da_suffix + "." + args.source_lang):
+            make_binary_da_dataset(
+                args.testpref + "." + args.da_suffix,
+                "test" + "." + args.da_suffix,
+                args.source_lang,
+                num_workers=args.workers,
+            )
+
+    # make_all(args.source_lang, src_dict)
+    # if target:
+    #     make_all(args.target_lang, tgt_dict)
+    # if args.align_suffix:
+    #     make_all_alignments()
+    if args.task == 'translation_da':
+        make_all_da()
 
     logger.info("Wrote preprocessed data to {}".format(args.destdir))
 
@@ -322,12 +401,12 @@ def main(args):
             align_dict[srcidx] = max(freq_map[srcidx], key=freq_map[srcidx].get)
 
         with open(
-            os.path.join(
-                args.destdir,
-                "alignment.{}-{}.txt".format(args.source_lang, args.target_lang),
-            ),
-            "w",
-            encoding="utf-8",
+                os.path.join(
+                    args.destdir,
+                    "alignment.{}-{}.txt".format(args.source_lang, args.target_lang),
+                ),
+                "w",
+                encoding="utf-8",
         ) as f:
             for k, v in align_dict.items():
                 print("{} {}".format(src_dict[k], tgt_dict[v]), file=f)
@@ -362,6 +441,23 @@ def binarize_alignments(args, filename, parse_alignment, output_prefix, offset, 
 
     res = Binarizer.binarize_alignments(
         filename, parse_alignment, consumer, offset=offset, end=end
+    )
+    ds.finalize(dataset_dest_file(args, output_prefix, None, "idx"))
+    return res
+
+
+def binarize_da(args, filename, output_prefix, offset, end):
+    ds = indexed_dataset.make_builder(
+        dataset_dest_file(args, output_prefix, None, "bin"),
+        impl=args.dataset_impl,
+        vocab_size=None,
+    )
+
+    def consumer(tensor):
+        ds.add_item(tensor)
+
+    res = Binarizer.binarize_da(
+        filename, consumer, offset=offset, end=end
     )
     ds.finalize(dataset_dest_file(args, output_prefix, None, "idx"))
     return res

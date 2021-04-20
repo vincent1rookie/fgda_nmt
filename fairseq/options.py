@@ -286,7 +286,8 @@ def add_preprocess_args(parser):
                        help="Pad dictionary size to be multiple of N")
     group.add_argument("--workers", metavar="N", default=1, type=int,
                        help="number of parallel workers")
-    # fmt: on
+    group.add_argument("--da-suffix", metavar="FP", default='da',
+                       help="domain file suffix")    # fmt: on
     return parser
 
 
