@@ -288,6 +288,8 @@ def add_preprocess_args(parser):
                        help="number of parallel workers")
     group.add_argument("--da-suffix", metavar="FP", default='da',
                        help="domain file suffix")    # fmt: on
+    group.add_argument("--da-mapping", metavar="FP", default=None,
+                       help="path of the domain mapping index")
     return parser
 
 
