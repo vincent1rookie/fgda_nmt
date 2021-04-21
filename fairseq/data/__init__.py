@@ -64,6 +64,8 @@ from .iterators import (
     ShardedIterator,
 )
 
+from .language_pair_da_dataset import LanguagePairDADataset
+
 __all__ = [
     "AddTargetDataset",
     "AppendTokenDataset",
@@ -121,4 +123,5 @@ __all__ = [
     "TransformEosLangPairDataset",
     "TruncateDataset",
     "TruncatedDictionary",
+    "LanguagePairDADataset"
 ]
