@@ -104,7 +104,7 @@ class Binarizer:
 
     @staticmethod
     def binarize_da(
-        filename, consumer, offset=0, end=-1
+        filename, consumer, da_mapping, offset=0, end=-1
     ) -> Dict[str, int]:
         nseq = 0
 
@@ -114,8 +114,7 @@ class Binarizer:
             while line:
                 if end > 0 and f.tell() > end:
                     break
-                ids = torch.IntTensor([int(line.strip()),])
-                # pdb.set_trace()
+                ids = torch.IntTensor([da_mapping[line.strip()]])
                 nseq += 1
                 consumer(ids)
                 line = f.readline()

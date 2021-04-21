@@ -20,6 +20,7 @@ from fairseq.binarizer import Binarizer
 from fairseq.data import indexed_dataset
 
 import pdb
+import json
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -237,7 +238,7 @@ def main(args):
 
         logger.info("[alignments] {}: parsed {} alignments".format(input_file, nseq[0]))
 
-    def make_binary_da_dataset(input_prefix, output_prefix, lang, num_workers):
+    def make_binary_da_dataset(input_prefix, output_prefix, lang, num_workers, da_mapping):
         logger.info("Adding domain indexes")
         n_seq_tok = [0, 0]
         replaced = Counter()
@@ -263,6 +264,7 @@ def main(args):
                         input_file,
                         prefix,
                         lang,
+                        da_mapping,
                         offsets[worker_id],
                         offsets[worker_id + 1],
                     ),
@@ -276,7 +278,7 @@ def main(args):
         )
         merge_result(
             Binarizer.binarize_da(
-                input_file, lambda t: ds.add_item(t), offset=0, end=offsets[1]
+                input_file, lambda t: ds.add_item(t), da_mapping, offset=0, end=offsets[1]
             )
         )
         if num_workers > 1:
@@ -336,12 +338,21 @@ def main(args):
             )
 
     def make_all_da():
+        assert args.da_mapping is not None and os.path.exists(args.da_mapping), print("domain mapping not found")
+
+        def read_mapping(filename):
+            with open(finename, 'r') as f:
+                return json.load(f)
+
+        da_mapping = read_mapping(args.da_mapping)
+
         if args.trainpref and os.path.exists(args.trainpref + "." + args.da_suffix + "." + args.source_lang):
             make_binary_da_dataset(
                 args.trainpref + "." + args.da_suffix,
                 "train" + "." + args.da_suffix,
                 args.source_lang,
                 num_workers=args.workers,
+                da_mapping=da_mapping
             )
         if args.validpref and os.path.exists(args.validpref + "." + args.da_suffix + "." + args.source_lang):
             make_binary_da_dataset(
@@ -349,6 +360,7 @@ def main(args):
                 "valid" + "." + args.da_suffix,
                 args.source_lang,
                 num_workers=args.workers,
+                da_mapping=da_mapping
             )
         if args.testpref and os.path.exists(args.testpref + "." + args.da_suffix + "." + args.source_lang):
             make_binary_da_dataset(
@@ -356,6 +368,7 @@ def main(args):
                 "test" + "." + args.da_suffix,
                 args.source_lang,
                 num_workers=args.workers,
+                da_mapping=da_mapping
             )
 
     make_all(args.source_lang, src_dict)
@@ -446,7 +459,7 @@ def binarize_alignments(args, filename, parse_alignment, output_prefix, offset, 
     return res
 
 
-def binarize_da(args, filename, output_prefix, offset, end):
+def binarize_da(args, filename, output_prefix, da_mapping, offset, end):
     ds = indexed_dataset.make_builder(
         dataset_dest_file(args, output_prefix, None, "bin"),
         impl=args.dataset_impl,
@@ -457,7 +470,7 @@ def binarize_da(args, filename, output_prefix, offset, end):
         ds.add_item(tensor)
 
     res = Binarizer.binarize_da(
-        filename, consumer, offset=offset, end=end
+        filename, consumer, da_mapping, offset=offset, end=end
     )
     ds.finalize(dataset_dest_file(args, output_prefix, None, "idx"))
     return res
