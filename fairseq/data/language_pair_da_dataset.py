@@ -118,9 +118,8 @@ def collate(
         "id": id,
         "nsentences": len(samples),
         "ntokens": ntokens,
-        "net_input": {"src_tokens": src_tokens, "src_lengths": src_lengths,},
+        "net_input": {"src_tokens": src_tokens, "src_lengths": src_lengths, "domains": domains},
         "target": target,
-        "domains": domains
     }
     if prev_output_tokens is not None:
         batch["net_input"]["prev_output_tokens"] = prev_output_tokens.index_select(
