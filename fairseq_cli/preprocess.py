@@ -358,11 +358,11 @@ def main(args):
                 num_workers=args.workers,
             )
 
-    # make_all(args.source_lang, src_dict)
-    # if target:
-    #     make_all(args.target_lang, tgt_dict)
-    # if args.align_suffix:
-    #     make_all_alignments()
+    make_all(args.source_lang, src_dict)
+    if target:
+        make_all(args.target_lang, tgt_dict)
+    if args.align_suffix:
+        make_all_alignments()
     if args.task == 'translation_da':
         make_all_da()
 
