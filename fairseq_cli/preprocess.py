@@ -341,7 +341,7 @@ def main(args):
         assert args.da_mapping is not None and os.path.exists(args.da_mapping), print("domain mapping not found")
 
         def read_mapping(filename):
-            with open(finename, 'r') as f:
+            with open(filename, 'r') as f:
                 return json.load(f)
 
         da_mapping = read_mapping(args.da_mapping)
