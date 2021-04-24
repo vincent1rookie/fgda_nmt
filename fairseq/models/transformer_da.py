@@ -42,8 +42,8 @@ DEFAULT_MAX_TARGET_POSITIONS = 1024
 DEFAULT_MIN_PARAMS_TO_WRAP = int(1e8)
 
 
-@register_model("transformer")
-class TransformerModel(FairseqEncoderDecoderModel):
+@register_model("transformer_da")
+class TransformerDAModel(FairseqEncoderDecoderModel):
     """
     Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
     <https://arxiv.org/abs/1706.03762>`_.
@@ -260,7 +260,7 @@ class TransformerModel(FairseqEncoderDecoderModel):
             args.checkpoint_activations = True  # offloading implies checkpointing
 
         # build domain embeddings from pretrained graph embeddings
-        domain_embedding = cls.build_pretrained_embedding(args, args.encoder_embed_dim, args.graph_embedding)
+        domain_embedding = cls.build_pretrained_embedding(args, args.encoder_embed_dim, src_dict.pad(), args.graph_embedding)
 
         encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens, domain_embedding)
         decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens)
@@ -314,6 +314,7 @@ class TransformerModel(FairseqEncoderDecoderModel):
         features_only: bool = False,
         alignment_layer: Optional[int] = None,
         alignment_heads: Optional[int] = None,
+        domains = None
     ):
         """
         Run the forward pass for an encoder-decoder model.
@@ -322,7 +323,7 @@ class TransformerModel(FairseqEncoderDecoderModel):
         which are not supported by TorchScript.
         """
         encoder_out = self.encoder(
-            src_tokens, src_lengths=src_lengths, return_all_hiddens=return_all_hiddens
+            src_tokens, src_lengths=src_lengths, domains=domains, return_all_hiddens=return_all_hiddens
         )
         decoder_out = self.decoder(
             prev_output_tokens,
@@ -1101,18 +1102,9 @@ def Linear(in_features, out_features, bias=True):
     return m
 
 
-@register_model_architecture("transformer", "transformer_tiny")
-def tiny_architecture(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 64)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 64)
-    args.encoder_layers = getattr(args, "encoder_layers", 2)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 2)
-    args.decoder_layers = getattr(args, "decoder_layers", 2)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 2)
-    return base_architecture(args)
 
 
-@register_model_architecture("transformer", "transformer")
+@register_model_architecture("transformer_da", "transformer_da")
 def base_architecture(args):
     args.encoder_embed_path = getattr(args, "encoder_embed_path", None)
     args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 512)
@@ -1166,57 +1158,6 @@ def base_architecture(args):
     args.quant_noise_pq = getattr(args, "quant_noise_pq", 0)
     args.quant_noise_pq_block_size = getattr(args, "quant_noise_pq_block_size", 8)
     args.quant_noise_scalar = getattr(args, "quant_noise_scalar", 0)
+    args.graph_embedding = getattr(args, "graph_embedding", None)
 
 
-@register_model_architecture("transformer", "transformer_iwslt_de_en")
-def transformer_iwslt_de_en(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 512)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 1024)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 4)
-    args.encoder_layers = getattr(args, "encoder_layers", 6)
-    args.decoder_embed_dim = getattr(args, "decoder_embed_dim", 512)
-    args.decoder_ffn_embed_dim = getattr(args, "decoder_ffn_embed_dim", 1024)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 4)
-    args.decoder_layers = getattr(args, "decoder_layers", 6)
-    base_architecture(args)
-
-
-@register_model_architecture("transformer", "transformer_wmt_en_de")
-def transformer_wmt_en_de(args):
-    base_architecture(args)
-
-
-# parameters used in the "Attention Is All You Need" paper (Vaswani et al., 2017)
-@register_model_architecture("transformer", "transformer_vaswani_wmt_en_de_big")
-def transformer_vaswani_wmt_en_de_big(args):
-    args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 1024)
-    args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 4096)
-    args.encoder_attention_heads = getattr(args, "encoder_attention_heads", 16)
-    args.encoder_normalize_before = getattr(args, "encoder_normalize_before", False)
-    args.decoder_embed_dim = getattr(args, "decoder_embed_dim", 1024)
-    args.decoder_ffn_embed_dim = getattr(args, "decoder_ffn_embed_dim", 4096)
-    args.decoder_attention_heads = getattr(args, "decoder_attention_heads", 16)
-    args.dropout = getattr(args, "dropout", 0.3)
-    base_architecture(args)
-
-
-@register_model_architecture("transformer", "transformer_vaswani_wmt_en_fr_big")
-def transformer_vaswani_wmt_en_fr_big(args):
-    args.dropout = getattr(args, "dropout", 0.1)
-    transformer_vaswani_wmt_en_de_big(args)
-
-
-@register_model_architecture("transformer", "transformer_wmt_en_de_big")
-def transformer_wmt_en_de_big(args):
-    args.attention_dropout = getattr(args, "attention_dropout", 0.1)
-    transformer_vaswani_wmt_en_de_big(args)
-
-
-# default parameters used in tensor2tensor implementation
-@register_model_architecture("transformer", "transformer_wmt_en_de_big_t2t")
-def transformer_wmt_en_de_big_t2t(args):
-    args.encoder_normalize_before = getattr(args, "encoder_normalize_before", True)
-    args.decoder_normalize_before = getattr(args, "decoder_normalize_before", True)
-    args.attention_dropout = getattr(args, "attention_dropout", 0.1)
-    args.activation_dropout = getattr(args, "activation_dropout", 0.1)
-    transformer_vaswani_wmt_en_de_big(args)
