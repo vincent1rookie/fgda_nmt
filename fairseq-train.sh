@@ -3,8 +3,8 @@
 . fairseq-conf.sh
 
 for SRC in "${SRCS[@]}"; do
-    train_dir=${TRAIN}/${SRC}${TGT}
-    data_dir=${OUTPUT}/${SRC}${TGT}/data-bin
+    train_dir=${TRAIN}/${TASK}/${DATA_PREFIX}${SRC}${TGT}
+    data_dir=${OUTPUT}/${TASK}/${DATA_PREFIX}${SRC}${TGT}/data-bin
     mkdir -p ${train_dir}/logs
     export CUDA_VISIBLE_DEVICES=${GPU} 
     python -m torch.distributed.launch --nproc_per_node ${NUM_GPU} --master_addr ${MASTER_ADDR} --master_port ${PORT} $(which fairseq-train) ${data_dir} \
@@ -27,6 +27,7 @@ for SRC in "${SRCS[@]}"; do
         --save-interval-updates=${SAVE_INTERVAL} \
         --eval-bleu \
         --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
+        --graph-embedding ${GRAPH_EMBEDDING} \
         --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
 	--tensorboard-logdir ${train_dir}/logs
 done

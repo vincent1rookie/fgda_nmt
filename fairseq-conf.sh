@@ -23,7 +23,7 @@ GRAPH_EMBEDDING=/home/ubuntu/data/embeds_en.npy
 
 # the output directory for the processed data: the bpe files will be in ${OUTPUT}/${SRC}${TGT}, the fairseq binary
 # files will be in ${OUTPUT}/${SRC}${TGT}/data-bin
-OUTPUT=/home/ubuntu/data-bin/
+OUTPUT=/home/ubuntu/data-bin
 # number of works in processing the data
 NUM_WORKER=1
 # For bilingual translation only , specify the source languages
@@ -41,9 +41,9 @@ SAVE_INTERVAL=1000
 # number of checkpoints to keep
 KEEP_CKPT=3
 # which devices are available
-GPU=1
+GPU=0
 # number of GPU's to use
-NUM_GPU=0
+NUM_GPU=1
 #for distributed training. Specify the address and port.
 
 # If you want to train multiple models at the same time, you should specify different ports
@@ -65,26 +65,5 @@ CRITERION=cross_entropy
 BEAM_SIZE=5
 DECODE_BATCH=128
 
-## you should also have x2x available in your environment. X2X specifies the path for X2X project.
-#X2X=/home/vincentzyxu/mt_opus
-#
-## fairseq-finetune
-## If you want to finetune from certain checkpoints, it should be in ${RESTORE_BASE}/${ARCH}/${SRC}${TGT}/checkpoint_best.pt
-#RESTORE_BASE=/dockerdata/vincentzyxu/checkpoints/fairseq/base
-#
-## for bert_fused models, please check the original paper: https://arxiv.org/abs/2002.06823 before use.
-## Specify the BERT you want ot use, refer to :https://huggingface.co/models for all avaliable pretrained models
-#BERT_PATH='bert-base-uncased'
-## output dimension of the bert encoder
-#BERT_OUT_DIM=768
-#ENCODER_EMBED_DIM=768   # this ENCODER_EMBED_DIM used in bert-fused model only, if you want to change base model, refer to fairseq/models/
-## weights of bert attention in each encoder/decoder layer
-## for each transformer blocks, before fc layers, the output = BERT_RATIO * (output of bert attention) + (1-BERT_RATIO) * (output of self-attention layer)
-#BERT_RATIO=0.5
-## whether to use trained model to initialize the corresponding part in bert-fused NMT
-#WARMUP_FROM_NMT=False
-## whether to finetune the BERT encoder
-#FINETUNE_BERT=False
-#BERT_RESTORE_FILE=/dockerdata/vincentzyxu/checkpoints/fairseq/bert_fused/transformer/dezh/checkpoint_best.p
-#
+
 
