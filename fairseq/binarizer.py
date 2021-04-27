@@ -114,7 +114,7 @@ class Binarizer:
             while line:
                 if end > 0 and f.tell() > end:
                     break
-                ids = torch.IntTensor([da_mapping.get(line.strip(), 0)])
+                ids = torch.IntTensor([da_mapping.get(line.strip(), 1)])
                 nseq += 1
                 consumer(ids)
                 line = f.readline()
