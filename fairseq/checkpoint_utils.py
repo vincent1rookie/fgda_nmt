@@ -12,6 +12,7 @@ import re
 import traceback
 from collections import OrderedDict
 from typing import Any, Dict, Optional, Union
+import pdb
 
 import torch
 from fairseq.dataclass.configs import CheckpointConfig, FairseqConfig
@@ -165,6 +166,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
     optimizer_overrides = ast.literal_eval(cfg.optimizer_overrides)
     reset_meters = cfg.reset_meters
     reset_dataloader = cfg.reset_dataloader
+    strict = True
 
     if cfg.finetune_from_model is not None and (
         reset_optimizer or reset_lr_scheduler or reset_meters or reset_dataloader
@@ -195,6 +197,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
                     f"loading pretrained model from {checkpoint_path}: "
                     "optimizer, lr scheduler, meters, dataloader will be reset"
                 )
+                strict = False
             else:
                 raise ValueError(
                     f"--funetune-from-model {cfg.finetune_from_model} does not exist"
@@ -216,6 +219,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
         reset_lr_scheduler,
         optimizer_overrides,
         reset_meters=reset_meters,
+        strict=strict
     )
 
     if (

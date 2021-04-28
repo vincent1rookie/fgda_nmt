@@ -419,6 +419,8 @@ class TransformerDAEncoder(FairseqEncoder):
             self.layer_norm = LayerNorm(embed_dim)
         else:
             self.layer_norm = None
+        # add a ffn layer for domain embeddings transformations
+        self.domain_projection = nn.Linear(embed_dim, embed_dim, bias=False)
 
     def build_encoder_layer(self, args):
         layer = TransformerEncoderLayer(args)
@@ -531,8 +533,10 @@ class TransformerDAEncoder(FairseqEncoder):
 
         x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
 
+        # add domain embeddings
         domains = domains.repeat(src_tokens.shape[-1], 1).t() * ~encoder_padding_mask
         domain_embedding = self.embed_domains(domains)
+        domain_embedding = self.domain_projection(domain_embedding)
 
         # account for padding while computing the representation
         if has_pads:
@@ -1081,7 +1085,7 @@ def Embedding(num_embeddings, embedding_dim, padding_idx):
     return m
 
 
-def PretrainedEmbedding(filename, embedding_dim, padding_idx, trainable=True):
+def PretrainedEmbedding(filename, embedding_dim, padding_idx, trainable=False):
     """
     Load pretrained embeddings from external files
     """
