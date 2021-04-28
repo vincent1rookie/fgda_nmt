@@ -5,35 +5,38 @@ export PYTHONPATH=${X2X}:$PYTHONPATH
 export TMPDIR=/dockerdata/vincentzyxu/trash
 export PYTHONIOENCODING=utf-8
 
-# task: default translation, if using bert fused models, then bert_fused_translation
+# task: default translation, or translation_da
 TASK=translation_da
 # ARCH: the model used, default if transformer_da, which is our proposed model
 ARCH=transformer_da
+PWD=/home/ziyun/code/fgda_nmt
 
 # min and max sentencepiece tokens for the corpus
 TRAIN_MINLEN=1  # remove sentences with <1 BPE token in spm encoding
 TRAIN_MAXLEN=256  # remove sentences with >200 BPE tokens in spm encoding
 # BPE size if we need to train a new spm model, otherwise can be ignored
-BPESIZE=40000
+BPESIZE=20000
 # complete data_dir is ${DATA}/${DATA_PREFIX}${SRC}${TGT}, for train, valid and test
-DATA=/home/ubuntu/data
+DATA=${PWD}/data
 DATA_PREFIX=steam_info_
-DA_MAPPING=/home/ubuntu/data/mapping_en.json
-GRAPH_EMBEDDING=/home/ubuntu/data/embeds_en.npy
+DA_MAPPING=${PWD}/data/graph/zh/mapping.json
+GRAPH_EMBEDDING=${PWD}/data/graph/zh/embeds.npy
+PATIENCE=10
 
 # the output directory for the processed data: the bpe files will be in ${OUTPUT}/${SRC}${TGT}, the fairseq binary
 # files will be in ${OUTPUT}/${SRC}${TGT}/data-bin
-OUTPUT=/home/ubuntu/data-bin
+OUTPUT=${PWD}/data-bin
 # number of works in processing the data
 NUM_WORKER=1
 # For bilingual translation only , specify the source languages
-SRCS=("en")
-TGT="zh"
-
-
-# The base path to store checkpoints, the complete path is ${TRAIN_BASE}/${ARCH}/${SRC}${TGT}/
-TRAIN_BASE=/home/ubuntu/checkpoints
-TRAIN=${TRAIN_BASE}/${TASK}/${ARCH}
+SRCS=("zh")
+TGT="en"
+# The base path to store checkpoints, the complete path is ${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}/${DATA_PREFIX}${SRC}${TGT}
+TRAIN_BASE=${PWD}/checkpoints
+SUFFIX=test0
+TRAIN=${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}
+# if warmup from pre-trained model, the use `WARMUP_FILE` to specify the checkpoint path
+WARMUP_FILE=${TRAIN_BASE}/translation/transformer/steam_info_zhen/checkpoint_best.pt
 # print log interval for each LOG_INTERVAL steps
 LOG_INTERVAL=100
 # save checkpoints for each SAVE_INTERVAL steps
@@ -50,7 +53,7 @@ NUM_GPU=1
 MASTER_ADDR=127.0.0.8
 PORT=29508
 # training parameters
-MAX_STEP=300000
+MAX_STEP=30000
 MAX_LENGTH=200
 # In the original fairseq, batch size means the maximum sentences in one batch,
 # but here, BATCH_SIZE means maximum non-padding tokens in one batch, the same as t2t
