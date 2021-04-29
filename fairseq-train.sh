@@ -23,14 +23,14 @@ for SRC in "${SRCS[@]}"; do
         --lr=${LR} \
         --arch=${ARCH} \
         --save-dir=${train_dir}  \
-        --finetune-from-model=${WARMUP_FILE} \
         --distributed-no-spawn \
         --num-workers=${NUM_WORKER} \
         --save-interval-updates=${SAVE_INTERVAL} \
-        --graph-embedding=${GRAPH_EMBEDDING} \
         --patience=${PATIENCE} \
         --eval-bleu \
         --eval-bleu-args '{"beam": 5, "max_len_a": 1.2, "max_len_b": 10}' \
         --best-checkpoint-metric bleu --maximize-best-checkpoint-metric \
 	--tensorboard-logdir ${train_dir}/logs
 done
+#        --graph-embedding=${GRAPH_EMBEDDING} \
+#        --finetune-from-model=${WARMUP_FILE} \
