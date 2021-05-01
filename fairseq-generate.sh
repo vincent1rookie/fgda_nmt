@@ -15,13 +15,15 @@ for SRC in "${SRCS[@]}"; do
 	    PYTHONIOENCODING=utf-8 CUDA_VISIBLE_DEVICES=${GPU} fairseq-generate ${data_dir} \
 		 --path ${train_dir}/${ckpt} \
 		 --task ${TASK} \
+		 --log-format simple \
 		 --batch-size ${DECODE_BATCH} --beam ${BEAM_SIZE} --min-len 0\
 		 --remove-bpe sentencepiece \
                  --skip-invalid-size-inputs-valid-test \
 		 --results-path ${train_dir}/translation \
-		 --scoring bleu
+		 --scoring sacrebleu
 
 		 tail -n 1 ${train_dir}/translation/generate-test.txt
+		 mv ${train_dir}/translation/generate-test.txt ${train_dir}/translation/generate-test-${ckpt}.txt
 
 ##	    echo "Reformatting decoded files..."
 #	    python -m scripts.parse_generate \
