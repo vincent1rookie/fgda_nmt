@@ -107,14 +107,14 @@ class Binarizer:
         filename, consumer, da_mapping, offset=0, end=-1
     ) -> Dict[str, int]:
         nseq = 0
-
+        num_mapping =len(da_mapping)
         with open(PathManager.get_local_path(filename), "r") as f:
             f.seek(offset)
             line = safe_readline(f)
             while line:
                 if end > 0 and f.tell() > end:
                     break
-                ids = torch.IntTensor([da_mapping.get(line.strip(), 1)])
+                ids = torch.IntTensor([da_mapping.get(line.strip(), num_mapping+1)])
                 nseq += 1
                 consumer(ids)
                 line = f.readline()
