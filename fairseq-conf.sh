@@ -8,7 +8,7 @@ export PYTHONIOENCODING=utf-8
 # task: default translation, or translation_da
 TASK=translation_da
 # ARCH: the model used, default if transformer_da, which is our proposed model
-ARCH=transformer_da
+ARCH=transformer_da2
 PWD=/home/ubuntu/fgda_nmt
 
 # min and max sentencepiece tokens for the corpus
@@ -16,11 +16,15 @@ TRAIN_MINLEN=1  # remove sentences with <1 BPE token in spm encoding
 TRAIN_MAXLEN=512  # remove sentences with >200 BPE tokens in spm encoding
 # BPE size if we need to train a new spm model, otherwise can be ignored
 BPESIZE=32000
+# For bilingual translation only , specify the source languages
+SRC="zh"
+SRCS=(${SRC})
+TGT="en"
 # complete data_dir is ${DATA}/${DATA_PREFIX}${SRC}${TGT}, for train, valid and test
 DATA=${PWD}/data
 DATA_PREFIX=mixed_
-DA_MAPPING=${PWD}/data/graph/zh/mapping.json
-GRAPH_EMBEDDING=${PWD}/data/graph/zh/embeds_loop.npy
+DA_MAPPING=${PWD}/data/graph/${SRC}/mapping.json
+GRAPH_EMBEDDING=${PWD}/data/graph/${SRC}/embeds_eps.npy
 PATIENCE=20
 
 # the output directory for the processed data: the bpe files will be in ${OUTPUT}/${SRC}${TGT}, the fairseq binary
@@ -28,16 +32,14 @@ PATIENCE=20
 OUTPUT=${PWD}/data-bin
 # number of works in processing the data
 NUM_WORKER=1
-# For bilingual translation only , specify the source languages
-SRCS=("zh")
-TGT="en"
+
 # The base path to store checkpoints, the complete path is ${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}/${DATA_PREFIX}${SRC}${TGT}
 TRAIN_BASE=${PWD}/checkpoints
 SUFFIX=test0
 TRAIN=${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}
 # if warmup from pre-trained model, the use `WARMUP_FILE` to specify the checkpoint path
 #WARMUP_FILE=${TRAIN_BASE}/translation/transformer/steam_info_zhen/checkpoint_best.pt
-WARMUP_FILE=${TRAIN_BASE}/translation/transformer/test0/un_zhen/checkpoint_best.pt
+WARMUP_FILE=${TRAIN_BASE}/translation/transformer/test0/un_${SRC}en/checkpoint_best.pt
 # print log interval for each LOG_INTERVAL steps
 LOG_INTERVAL=100
 # save checkpoints for each SAVE_INTERVAL steps

@@ -37,6 +37,8 @@ from .unfold import unfold1d
 from .transformer_layer import TransformerDecoderLayer, TransformerEncoderLayer
 from .vggblock import VGGBlock
 
+from .transformer_da_layer import TransformerDAEncoderLayer
+
 __all__ = [
     "AdaptiveInput",
     "AdaptiveSoftmax",
@@ -75,4 +77,5 @@ __all__ = [
     "TransposeLast",
     "VGGBlock",
     "unfold1d",
+    "TransformerDAEncoderLayer"
 ]
