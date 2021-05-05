@@ -1094,7 +1094,7 @@ def PretrainedEmbedding(filename, embedding_dim, padding_idx, trainable=False):
     # assert pretrained_weight.shape[0] == num_embeddings and pretrained_weight.shape[1] == embedding_dim
     assert pretrained_weight.shape[1] == embedding_dim
 
-    m = nn.Embedding.from_pretrained(pretrained_weight, freeze=trainable, padding_idx=padding_idx)
+    m = nn.Embedding.from_pretrained(pretrained_weight, freeze=not trainable, padding_idx=padding_idx)
     return m
 
 
