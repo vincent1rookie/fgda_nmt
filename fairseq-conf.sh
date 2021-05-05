@@ -24,7 +24,7 @@ TGT="en"
 DATA=${PWD}/data
 DATA_PREFIX=mixed_
 DA_MAPPING=${PWD}/data/graph/${SRC}/mapping.json
-GRAPH_EMBEDDING=${PWD}/data/graph/${SRC}/embeds_eps.npy
+GRAPH_EMBEDDING=${PWD}/data/graph/${SRC}/embeds.npy
 PATIENCE=20
 
 # the output directory for the processed data: the bpe files will be in ${OUTPUT}/${SRC}${TGT}, the fairseq binary
@@ -35,10 +35,10 @@ NUM_WORKER=1
 
 # The base path to store checkpoints, the complete path is ${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}/${DATA_PREFIX}${SRC}${TGT}
 TRAIN_BASE=${PWD}/checkpoints
-SUFFIX=test0
+SUFFIX=test2
 TRAIN=${TRAIN_BASE}/${TASK}/${ARCH}/${SUFFIX}
 # if warmup from pre-trained model, the use `WARMUP_FILE` to specify the checkpoint path
-#WARMUP_FILE=${TRAIN_BASE}/translation/transformer/steam_info_zhen/checkpoint_best.pt
+#WARMUP_FILE=${TRAIN_BASE}/translation/transformer_da/steam_info_zhen/checkpoint_best.pt
 WARMUP_FILE=${TRAIN_BASE}/translation/transformer/test0/un_${SRC}en/checkpoint_best.pt
 # print log interval for each LOG_INTERVAL steps
 LOG_INTERVAL=100
