@@ -14,6 +14,7 @@ from fairseq.models import FairseqIncrementalDecoder
 from torch import Tensor
 from fairseq.ngram_repeat_block import NGramRepeatBlock
 
+import pdb
 
 class SequenceGenerator(nn.Module):
     def __init__(
@@ -242,6 +243,7 @@ class SequenceGenerator(nn.Module):
             self.min_len <= max_len
         ), "min_len cannot be larger than max_len, please adjust these!"
         # compute the encoder output for each beam
+        # pdb.set_trace()
         encoder_outs = self.model.forward_encoder(net_input)
 
         # placeholder of indices for bsz * beam_size to hold tokens and accumulative scores

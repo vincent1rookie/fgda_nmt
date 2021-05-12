@@ -57,9 +57,9 @@ for SRC in "${SRCS[@]}"; do
 #    cp ${data_dir}/train.da ${output_dir}/train.bpe.da.${SRC}
 #    cp ${data_dir}/valid.da ${output_dir}/valid.bpe.da.${SRC}
 #    cp ${data_dir}/test.da ${output_dir}/test.bpe.da.${SRC}
-    cp ${data_dir}/train.tag ${output_dir}/train.bpe.tag.${SRC}
-    cp ${data_dir}/valid.tag ${output_dir}/valid.bpe.tag.${SRC}
-    cp ${data_dir}/test.tag ${output_dir}/test.bpe.tag.${SRC}
+#    cp ${data_dir}/train.cat ${output_dir}/train.bpe.tag.${SRC}
+#    cp ${data_dir}/valid.cat ${output_dir}/valid.bpe.tag.${SRC}
+#    cp ${data_dir}/test.cat ${output_dir}/test.bpe.tag.${SRC}
 
     python -m fairseq_cli.preprocess --source-lang ${SRC} --target-lang ${TGT} \
         --task ${TASK} \

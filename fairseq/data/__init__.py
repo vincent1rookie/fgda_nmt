@@ -65,6 +65,7 @@ from .iterators import (
 )
 
 from .language_pair_da_dataset import LanguagePairDADataset
+from .language_pair_da_tag_dataset import LanguagePairDATAGDataset
 
 __all__ = [
     "AddTargetDataset",
@@ -123,5 +124,6 @@ __all__ = [
     "TransformEosLangPairDataset",
     "TruncateDataset",
     "TruncatedDictionary",
-    "LanguagePairDADataset"
+    "LanguagePairDADataset",
+    "LanguagePairDATAGDataset"
 ]

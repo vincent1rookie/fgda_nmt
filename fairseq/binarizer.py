@@ -121,6 +121,23 @@ class Binarizer:
         return {"nseq": nseq}
 
     @staticmethod
+    def binarize_tag(
+        filename, consumer, offset=0, end=-1
+    ) -> Dict[str, int]:
+        nseq = 0
+        with open(PathManager.get_local_path(filename), "r") as f:
+            f.seek(offset)
+            line = safe_readline(f)
+            while line:
+                if end > 0 and f.tell() > end:
+                    break
+                ids = torch.IntTensor([int(num.strip())+1 for num in line.split(',')])
+                nseq += 1
+                consumer(ids)
+                line = f.readline()
+        return {"nseq": nseq}
+
+    @staticmethod
     def find_offsets(filename, num_chunks) -> List[int]:
         with open(PathManager.get_local_path(filename), "r", encoding="utf-8") as f:
             size = os.fstat(f.fileno()).st_size

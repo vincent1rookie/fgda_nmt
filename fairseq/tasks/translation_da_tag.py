@@ -24,13 +24,11 @@ from fairseq.data import (
     data_utils,
     encoders,
     indexed_dataset,
-    LanguagePairDADataset
+    LanguagePairDATAGDataset
 )
 from fairseq.data.indexed_dataset import get_available_dataset_impl
 from fairseq.dataclass import ChoiceEnum, FairseqDataclass
 from fairseq.tasks import FairseqTask, register_task
-
-import pdb
 
 
 EVAL_BLEU_ORDER = 4
@@ -65,12 +63,14 @@ def load_langpair_dataset(
     def split_exists(split, src, tgt, lang, data_path):
         filename = os.path.join(data_path, "{}.{}-{}.{}".format(split, src, tgt, lang))
         da_filename = os.path.join(data_path, "{}.da.{}-{}.{}".format(split, src, tgt, lang))
+        tag_filename = os.path.join(data_path, "{}.tag.{}-{}.{}".format(split, src, tgt, lang))
         return indexed_dataset.dataset_exists(filename, impl=dataset_impl) \
                and indexed_dataset.dataset_exists(da_filename, impl=dataset_impl)
 
     src_datasets = []
     tgt_datasets = []
     da_datasets = []
+    tag_datasets = []
 
     for k in itertools.count():
         split_k = split + (str(k) if k > 0 else "")
@@ -79,9 +79,13 @@ def load_langpair_dataset(
         if split_exists(split_k, src, tgt, src, data_path):
             prefix = os.path.join(data_path, "{}.{}-{}.".format(split_k, src, tgt))
             da_prefix = os.path.join(data_path, "{}.da.{}-{}.".format(split_k, src, tgt))
+            tag_prefix = os.path.join(data_path, "{}.tag.{}-{}.".format(split_k, src, tgt))
+
         elif split_exists(split_k, tgt, src, src, data_path):
             prefix = os.path.join(data_path, "{}.{}-{}.".format(split_k, tgt, src))
             da_prefix = os.path.join(data_path, "{}.da.{}-{}.".format(split_k, tgt, src))
+            tag_prefix = os.path.join(data_path, "{}.tag.{}-{}.".format(split_k, tgt, src))
+
         else:
             if k > 0:
                 break
@@ -114,6 +118,12 @@ def load_langpair_dataset(
         )
         if da_dataset is not None:
             da_datasets.append(da_dataset)
+
+        tag_dataset = data_utils.load_indexed_dataset(
+            tag_prefix + src, None, dataset_impl
+        )
+        if tag_dataset is not None:
+            tag_datasets.append(tag_dataset)
         logger.info(
             "{} {} {}-{} {} examples".format(
                 data_path, split_k, src, tgt, len(src_datasets[-1])
@@ -125,11 +135,14 @@ def load_langpair_dataset(
 
     assert len(src_datasets) == len(tgt_datasets) or len(tgt_datasets) == 0
     assert len(src_datasets) == len(da_datasets) or len(da_datasets) == 0
+    assert len(src_datasets) == len(tag_datasets) or len(tag_datasets) == 0
+
 
     if len(src_datasets) == 1:
         src_dataset = src_datasets[0]
         tgt_dataset = tgt_datasets[0] if len(tgt_datasets) > 0 else None
         da_dataset = da_datasets[0]
+        tag_dataset = tag_datasets[0]
     else:
         sample_ratios = [1] * len(src_datasets)
         sample_ratios[0] = upsample_primary
@@ -142,6 +155,10 @@ def load_langpair_dataset(
             da_dataset = ConcatDataset(da_datasets, sample_ratios)
         else:
             da_dataset = None
+        if len(tag_datasets) > 0:
+            tag_dataset = ConcatDataset(tag_datasets, sample_ratios)
+        else:
+            tag_dataset = None
 
     if prepend_bos:
         assert hasattr(src_dict, "bos_index") and hasattr(tgt_dict, "bos_index")
@@ -172,7 +189,7 @@ def load_langpair_dataset(
             )
 
     tgt_dataset_sizes = tgt_dataset.sizes if tgt_dataset is not None else None
-    return LanguagePairDADataset(
+    return LanguagePairDATAGDataset(
         src_dataset,
         src_dataset.sizes,
         src_dict,
@@ -180,6 +197,7 @@ def load_langpair_dataset(
         tgt_dataset_sizes,
         tgt_dict,
         da_dataset,
+        tag_dataset,
         left_pad_source=left_pad_source,
         left_pad_target=left_pad_target,
         align_dataset=align_dataset,
@@ -191,7 +209,7 @@ def load_langpair_dataset(
 
 
 @dataclass
-class TranslationDAConfig(FairseqDataclass):
+class TranslationDATAGConfig(FairseqDataclass):
     data: Optional[str] = field(
         default=None,
         metadata={
@@ -284,8 +302,8 @@ class TranslationDAConfig(FairseqDataclass):
     )
 
 
-@register_task("translation_da", dataclass=TranslationDAConfig)
-class TranslationDATask(FairseqTask):
+@register_task("translation_da_tag", dataclass=TranslationDATAGConfig)
+class TranslationDATAGTask(FairseqTask):
     """
     Translate from one (source) language to another (target) language.
 
@@ -299,15 +317,15 @@ class TranslationDATask(FairseqTask):
         :mod:`fairseq-generate` and :mod:`fairseq-interactive`.
     """
 
-    cfg: TranslationDAConfig
+    cfg: TranslationDATAGConfig
 
-    def __init__(self, cfg: TranslationDAConfig, src_dict, tgt_dict):
+    def __init__(self, cfg: TranslationDATAGConfig, src_dict, tgt_dict):
         super().__init__(cfg)
         self.src_dict = src_dict
         self.tgt_dict = tgt_dict
 
     @classmethod
-    def setup_task(cls, cfg: TranslationDAConfig, **kwargs):
+    def setup_task(cls, cfg: TranslationDATAGConfig, **kwargs):
         """Setup the task (e.g., load dictionaries).
 
         Args:
@@ -377,7 +395,7 @@ class TranslationDATask(FairseqTask):
         )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths, constraints=None, domains=None):
-        return LanguagePairDADataset(
+        return LanguagePairDATAGDataset(
             src_tokens,
             src_lengths,
             self.source_dictionary,
@@ -488,7 +506,7 @@ class TranslationDATask(FairseqTask):
             if self.tokenizer:
                 s = self.tokenizer.decode(s)
             return s
-        # pdb.set_trace()
+
         gen_out = self.inference_step(generator, [model], sample, prefix_tokens=None)
         hyps, refs = [], []
         for i in range(len(gen_out)):

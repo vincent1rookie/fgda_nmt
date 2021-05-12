@@ -113,13 +113,21 @@ def collate(
     # Add domain indices
     domains = torch.LongTensor([s["domain"] for s in samples])
     domains = domains.index_select(0, sort_order)
+    pdb.set_trace()
+    tags = merge(
+            "tags",
+            left_pad=False,
+            pad_to_length=None,
+        )
+    tags = tags.index_select(0, sort_order)
 
     batch = {
         "id": id,
         "nsentences": len(samples),
         "ntokens": ntokens,
-        "net_input": {"src_tokens": src_tokens, "src_lengths": src_lengths, "domains": domains},
+        "net_input": {"src_tokens": src_tokens, "src_lengths": src_lengths, "domains": domains, "tags": tags},
         "target": target,
+        "tags": tags
     }
     if prev_output_tokens is not None:
         batch["net_input"]["prev_output_tokens"] = prev_output_tokens.index_select(
@@ -166,7 +174,7 @@ def collate(
     return batch
 
 
-class LanguagePairDADataset(FairseqDataset):
+class LanguagePairDATAGDataset(FairseqDataset):
     """
     A pair of torch.utils.data.Datasets.
 
@@ -215,7 +223,7 @@ class LanguagePairDADataset(FairseqDataset):
         tgt_sizes=None,
         tgt_dict=None,
         da=None,
-        tag=None,
+        tags=None,
         left_pad_source=True,
         left_pad_target=False,
         shuffle=True,
@@ -242,6 +250,7 @@ class LanguagePairDADataset(FairseqDataset):
         self.src = src
         self.tgt = tgt
         self.da = da
+        self.tags = tags
         self.src_sizes = np.array(src_sizes)
         self.tgt_sizes = np.array(tgt_sizes) if tgt_sizes is not None else None
         self.sizes = (
@@ -310,6 +319,7 @@ class LanguagePairDADataset(FairseqDataset):
         tgt_item = self.tgt[index] if self.tgt is not None else None
         src_item = self.src[index]
         da_item = self.da[index]
+        tag_item = self.tags[index]
         # Append EOS to end of tgt sentence if it does not have an EOS and remove
         # EOS from end of src sentence if it exists. This is useful when we use
         # use existing datasets for opposite directions i.e., when we want to
@@ -337,9 +347,9 @@ class LanguagePairDADataset(FairseqDataset):
             "id": index,
             "source": src_item,
             "target": tgt_item,
-            "domain": da_item
+            "domain": da_item,
+            "tags": tag_item
         }
-        # pdb.set_trace()
         if self.align_dataset is not None:
             example["alignment"] = self.align_dataset[index]
         if self.constraints is not None:

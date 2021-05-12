@@ -292,6 +292,42 @@ def main(args):
 
         ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
 
+    def make_binary_tag_dataset(input_prefix, output_prefix, lang, num_workers):
+        logger.info("Adding tag indexes")
+        n_seq_tok = [0, 0]
+        replaced = Counter()
+
+        def merge_result(worker_result):
+            n_seq_tok[0] += worker_result["nseq"]
+
+        input_file = "{}{}".format(
+            input_prefix, ("." + lang) if lang is not None else ""
+        )
+        offsets = Binarizer.find_offsets(input_file, num_workers)
+        pool = None
+        assert num_workers == 1
+
+        ds = indexed_dataset.make_builder(
+            dataset_dest_file(args, output_prefix, lang, "bin"),
+            impl=args.dataset_impl,
+        )
+        merge_result(
+            Binarizer.binarize_tag(
+                input_file, lambda t: ds.add_item(t), offset=0, end=offsets[1]
+            )
+        )
+        if num_workers > 1:
+            pool.join()
+            for worker_id in range(1, num_workers):
+                prefix = "{}{}".format(output_prefix, worker_id)
+                temp_file_path = dataset_dest_prefix(args, prefix, lang)
+                ds.merge_file_(temp_file_path)
+                os.remove(indexed_dataset.data_file_path(temp_file_path))
+                os.remove(indexed_dataset.index_file_path(temp_file_path))
+
+        ds.finalize(dataset_dest_file(args, output_prefix, lang, "idx"))
+
+
     def make_dataset(vocab, input_prefix, output_prefix, lang, num_workers=1):
         if args.dataset_impl == "raw":
             # Copy original text file to destination folder
@@ -371,13 +407,39 @@ def main(args):
                 da_mapping=da_mapping
             )
 
+    def make_all_tag():
+
+        if args.trainpref and os.path.exists(args.trainpref + "." + 'tag'+ "." + args.source_lang):
+            make_binary_tag_dataset(
+                args.trainpref + "." + 'tag',
+                "train" + "." + 'tag',
+                args.source_lang,
+                num_workers=args.workers,
+            )
+        if args.validpref and os.path.exists(args.validpref + "." + 'tag'+ "." + args.source_lang):
+            make_binary_tag_dataset(
+                args.validpref + "." + 'tag',
+                "valid" + "." + 'tag',
+                args.source_lang,
+                num_workers=args.workers,
+            )
+        if args.testpref and os.path.exists(args.testpref + "." + 'tag'+ "." + args.source_lang):
+            make_binary_tag_dataset(
+                args.testpref + "." + 'tag',
+                "test" + "." + 'tag',
+                args.source_lang,
+                num_workers=args.workers,
+            )
+
     make_all(args.source_lang, src_dict)
     if target:
         make_all(args.target_lang, tgt_dict)
     if args.align_suffix:
         make_all_alignments()
-    if args.task == 'translation_da':
+    if args.task.startswith('translation_da'):
         make_all_da()
+    if args.task == 'translation_da_tag':
+        make_all_tag()
 
     logger.info("Wrote preprocessed data to {}".format(args.destdir))
 

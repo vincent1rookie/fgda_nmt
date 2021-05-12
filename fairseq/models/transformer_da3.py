@@ -28,12 +28,12 @@ from fairseq.modules import (
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
     TransformerDecoderLayer,
-    TransformerDAEncoderLayer,
+    TransformerEncoderLayer,
 )
 from fairseq.modules.checkpoint_activations import checkpoint_wrapper
 from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 from torch import Tensor
-
+import pdb
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
 DEFAULT_MAX_TARGET_POSITIONS = 1024
@@ -42,7 +42,7 @@ DEFAULT_MAX_TARGET_POSITIONS = 1024
 DEFAULT_MIN_PARAMS_TO_WRAP = int(1e8)
 
 
-@register_model("transformer_da2")
+@register_model("transformer_da3")
 class TransformerDAModel(FairseqEncoderDecoderModel):
     """
     Transformer model from `"Attention Is All You Need" (Vaswani, et al, 2017)
@@ -262,8 +262,8 @@ class TransformerDAModel(FairseqEncoderDecoderModel):
         # build domain embeddings from pretrained graph embeddings
         domain_embedding = cls.build_pretrained_embedding(args, args.encoder_embed_dim, 0, args.graph_embedding)
 
-        encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens, domain_embedding)
-        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens)
+        encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens)
+        decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens, domain_embedding)
         if not args.share_all_embeddings:
             min_params_to_wrap = getattr(
                 args, "min_params_to_wrap", DEFAULT_MIN_PARAMS_TO_WRAP
@@ -291,16 +291,17 @@ class TransformerDAModel(FairseqEncoderDecoderModel):
 
 
     @classmethod
-    def build_encoder(cls, args, src_dict, embed_tokens, domain_embedding):
-        return TransformerDAEncoder(args, src_dict, embed_tokens, domain_embedding)
+    def build_encoder(cls, args, src_dict, embed_tokens):
+        return TransformerDAEncoder(args, src_dict, embed_tokens)
 
     @classmethod
-    def build_decoder(cls, args, tgt_dict, embed_tokens):
-        return TransformerDecoder(
+    def build_decoder(cls, args, tgt_dict, embed_tokens, domain_embedding):
+        return TransformerDADecoder(
             args,
             tgt_dict,
             embed_tokens,
             no_encoder_attn=getattr(args, "no_cross_attention", False),
+            domain_embedding=domain_embedding
         )
 
     # TorchScript doesn't support optional arguments with variable length (**kwargs).
@@ -361,7 +362,7 @@ class TransformerDAEncoder(FairseqEncoder):
         embed_tokens (torch.nn.Embedding): input embedding
     """
 
-    def __init__(self, args, dictionary, embed_tokens, domain_embedding):
+    def __init__(self, args, dictionary, embed_tokens):
         self.args = args
         super().__init__(dictionary)
         self.register_buffer("version", torch.Tensor([3]))
@@ -390,8 +391,6 @@ class TransformerDAEncoder(FairseqEncoder):
             else None
         )
 
-        self.embed_domains = domain_embedding
-
         if getattr(args, "layernorm_embedding", False):
             self.layernorm_embedding = LayerNorm(embed_dim)
         else:
@@ -419,11 +418,11 @@ class TransformerDAEncoder(FairseqEncoder):
             self.layer_norm = LayerNorm(embed_dim)
         else:
             self.layer_norm = None
-        # add a ffn layer for domain embeddings transformations
-        self.domain_projection = nn.Linear(embed_dim, embed_dim, bias=False)
+        # # add a ffn layer for domain embeddings transformations
+        # self.domain_projection = nn.Linear(embed_dim, embed_dim, bias=False)
 
     def build_encoder_layer(self, args):
-        layer = TransformerDAEncoderLayer(args)
+        layer = TransformerEncoderLayer(args)
         checkpoint = getattr(args, "checkpoint_activations", False)
         if checkpoint:
             offload_to_cpu = getattr(args, "offload_activations", False)
@@ -532,19 +531,22 @@ class TransformerDAEncoder(FairseqEncoder):
         has_pads = (src_tokens.device.type == "xla" or encoder_padding_mask.any())
 
         x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
-
-        # add domain embeddings
-        domains = domains.repeat(src_tokens.shape[-1], 1).t() * ~encoder_padding_mask
-        domain_embedding = self.embed_domains(domains)
+        #
+        # # add domain embeddings
+        # domains = domains.repeat(src_tokens.shape[-1], 1).t() * ~encoder_padding_mask
+        # domain_embedding = self.embed_domains(domains)
         # domain_embedding = self.domain_projection(domain_embedding)
 
         # account for padding while computing the representation
         if has_pads:
             x = x * (1 - encoder_padding_mask.unsqueeze(-1).type_as(x))
 
+        # add domain embeddings
+
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
-        domain_embedding = domain_embedding.transpose(0, 1)
+        # domain_embedding = domain_embedding.transpose(0, 1)
+        # x = 0.5 * (x + domain_embedding)
 
         encoder_states = []
 
@@ -554,9 +556,9 @@ class TransformerDAEncoder(FairseqEncoder):
         # encoder layers
         for layer in self.layers:
             x = layer(
-                x, encoder_padding_mask=encoder_padding_mask if has_pads else None,
-                domain_embedding=domain_embedding
+                x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
+            # x = 0.5 * (x + domain_embedding)
             if return_all_hiddens:
                 assert encoder_states is not None
                 encoder_states.append(x)
@@ -575,6 +577,7 @@ class TransformerDAEncoder(FairseqEncoder):
             "encoder_states": encoder_states,  # List[T x B x C]
             "src_tokens": [],
             "src_lengths": [],
+            "domains": [domains]
         }
 
     @torch.jit.export
@@ -589,6 +592,7 @@ class TransformerDAEncoder(FairseqEncoder):
         Returns:
             *encoder_out* rearranged according to *new_order*
         """
+        # pdb.set_trace()
         if len(encoder_out["encoder_out"]) == 0:
             new_encoder_out = []
         else:
@@ -621,6 +625,11 @@ class TransformerDAEncoder(FairseqEncoder):
             for idx, state in enumerate(encoder_states):
                 encoder_states[idx] = state.index_select(1, new_order)
 
+        if len(encoder_out['domains']) == 0:
+            domains = []
+        else:
+            domains = [(encoder_out["domains"][0]).index_select(0, new_order)]
+
         return {
             "encoder_out": new_encoder_out,  # T x B x C
             "encoder_padding_mask": new_encoder_padding_mask,  # B x T
@@ -628,6 +637,7 @@ class TransformerDAEncoder(FairseqEncoder):
             "encoder_states": encoder_states,  # List[T x B x C]
             "src_tokens": src_tokens,  # B x T
             "src_lengths": src_lengths,  # B x 1
+            "domains": domains # B * 1
         }
 
     def max_positions(self):
@@ -661,7 +671,8 @@ class TransformerDAEncoder(FairseqEncoder):
         return state_dict
 
 
-class TransformerDecoder(FairseqIncrementalDecoder):
+
+class TransformerDADecoder(FairseqIncrementalDecoder):
     """
     Transformer decoder consisting of *args.decoder_layers* layers. Each layer
     is a :class:`TransformerDecoderLayer`.
@@ -681,6 +692,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         embed_tokens,
         no_encoder_attn=False,
         output_projection=None,
+        domain_embedding=None
     ):
         self.args = args
         super().__init__(dictionary)
@@ -766,6 +778,11 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         self.output_projection = output_projection
         if self.output_projection is None:
             self.build_output_projection(args, dictionary, embed_tokens)
+
+        # add domain embeddings
+        self.embed_domains = domain_embedding
+        self.domain_projection = nn.Linear(embed_dim,  len(dictionary), bias=False)
+
 
     def build_output_projection(self, args, dictionary, embed_tokens):
         if args.adaptive_softmax_cutoff is not None:
@@ -854,6 +871,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         if not features_only:
             x = self.output_layer(x)
+        # pdb.set_trace()
+        # add domain bias
+        domains = encoder_out['domains'][0]
+        domains = domains.repeat(x.shape[1], 1).t()
+        domain_embedding = self.embed_domains(domains) # B * V
+        domain_embedding = self.domain_projection(domain_embedding) # B * C * V
+
+        x += domain_embedding
         return x, extra
 
     def extract_features(
@@ -1105,7 +1130,7 @@ def Linear(in_features, out_features, bias=True):
 
 
 
-@register_model_architecture("transformer_da2", "transformer_da2")
+@register_model_architecture("transformer_da3", "transformer_da3")
 def base_architecture(args):
     args.encoder_embed_path = getattr(args, "encoder_embed_path", None)
     args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 512)

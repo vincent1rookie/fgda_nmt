@@ -34,6 +34,7 @@ from fairseq.modules.checkpoint_activations import checkpoint_wrapper
 from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 from torch import Tensor
 
+import pdb
 
 DEFAULT_MAX_SOURCE_POSITIONS = 1024
 DEFAULT_MAX_TARGET_POSITIONS = 1024
@@ -260,7 +261,7 @@ class TransformerDAModel(FairseqEncoderDecoderModel):
             args.checkpoint_activations = True  # offloading implies checkpointing
 
         # build domain embeddings from pretrained graph embeddings
-        domain_embedding = cls.build_pretrained_embedding(args, args.encoder_embed_dim, src_dict.pad(), args.graph_embedding)
+        domain_embedding = cls.build_pretrained_embedding(args, args.encoder_embed_dim, 0, args.graph_embedding)
 
         encoder = cls.build_encoder(args, src_dict, encoder_embed_tokens, domain_embedding)
         decoder = cls.build_decoder(args, tgt_dict, decoder_embed_tokens)
@@ -534,6 +535,7 @@ class TransformerDAEncoder(FairseqEncoder):
         x, encoder_embedding = self.forward_embedding(src_tokens, token_embeddings)
 
         # add domain embeddings
+        # pdb.set_trace()
         domains = domains.repeat(src_tokens.shape[-1], 1).t() * ~encoder_padding_mask
         domain_embedding = self.embed_domains(domains)
         domain_embedding = self.domain_projection(domain_embedding)
@@ -559,7 +561,7 @@ class TransformerDAEncoder(FairseqEncoder):
             x = layer(
                 x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
-            x = 0.5 * (x + domain_embedding)
+            # x = 0.5 * (x + domain_embedding)
             if return_all_hiddens:
                 assert encoder_states is not None
                 encoder_states.append(x)

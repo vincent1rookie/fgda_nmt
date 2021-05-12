@@ -58,7 +58,7 @@ class TransformerDAEncoderLayer(TransformerEncoderLayer):
         residual = x
         domain_feature = self.domain_projection(domain_embedding)
         domain_feature = self.domain_dropout(domain_feature)
-        x += domain_feature
+        # x += domain_feature
         if self.normalize_before:
             x = self.self_attn_layer_norm(x)
         x, _ = self.self_attn(
@@ -71,6 +71,7 @@ class TransformerDAEncoderLayer(TransformerEncoderLayer):
         )
         x = self.dropout_module(x)
         x = self.residual_connection(x, residual)
+        x += domain_feature
         if not self.normalize_before:
             x = self.self_attn_layer_norm(x)
 
